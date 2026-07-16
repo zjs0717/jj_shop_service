@@ -4,13 +4,14 @@ from sqlalchemy.orm import Session
 from app.auth import create_access_token, get_current_user, hash_password, verify_password
 from app.database import get_db
 from app.models import User
-from app.schemas import AuthRequest, LoginResponse, RegisterResponse, UserResponse
+from app.response import success
+from app.schemas import AuthRequest, UserResponse
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
 
-@router.post("/register", response_model=RegisterResponse, status_code=status.HTTP_201_CREATED)
-def register(payload: AuthRequest, db: Session = Depends(get_db)) -> RegisterResponse:
+@router.post("/register")
+def register(payload: AuthRequest, db: Session = Depends(get_db)) -> dict:
     username = payload.username.strip()
 
     existing_user = db.query(User).filter(User.username == username).first()
@@ -26,11 +27,11 @@ def register(payload: AuthRequest, db: Session = Depends(get_db)) -> RegisterRes
     db.refresh(user)
 
     token = create_access_token(user.username)
-    return RegisterResponse(token=token, username=user.username)
+    return success({"token": token, "username": user.username})
 
 
-@router.post("/login", response_model=LoginResponse)
-def login(payload: AuthRequest, db: Session = Depends(get_db)) -> LoginResponse:
+@router.post("/login")
+def login(payload: AuthRequest, db: Session = Depends(get_db)) -> dict:
     username = payload.username.strip()
     user = db.query(User).filter(User.username == username).first()
 
@@ -41,9 +42,9 @@ def login(payload: AuthRequest, db: Session = Depends(get_db)) -> LoginResponse:
         )
 
     token = create_access_token(user.username)
-    return LoginResponse(token=token)
+    return success({"token": token})
 
 
-@router.get("/me", response_model=UserResponse)
-def me(current_user: User = Depends(get_current_user)) -> UserResponse:
-    return current_user
+@router.get("/me")
+def me(current_user: User = Depends(get_current_user)) -> dict:
+    return success(UserResponse.model_validate(current_user).model_dump())
