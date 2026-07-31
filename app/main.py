@@ -8,7 +8,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from app.config import settings
 from app.database import Base, engine
 from app.response import http_exception_handler, success, validation_exception_handler
-from app.routers import auth
+from app.routers import auth, dashboard
 
 
 @asynccontextmanager
@@ -31,6 +31,7 @@ app.add_exception_handler(RequestValidationError, validation_exception_handler)
 app.add_exception_handler(StarletteHTTPException, http_exception_handler)
 
 app.include_router(auth.router)
+app.include_router(dashboard.router)
 
 
 @app.get("/health")
