@@ -60,20 +60,20 @@ RANK_POOL = [
     ("live", "周末亲子场"),
 ]
 
-# 城市坐标为地图 viewBox 内相对位置（0~1），用于前端热力点
+# 城市经纬度 + 所属省份（用于 ECharts 中国地图）
 REGION_SEED = [
-    {"name": "北京", "x": 0.70, "y": 0.30, "module": "shop", "base": 8600},
-    {"name": "上海", "x": 0.82, "y": 0.52, "module": "shop", "base": 9200},
-    {"name": "广州", "x": 0.68, "y": 0.78, "module": "live", "base": 7400},
-    {"name": "深圳", "x": 0.72, "y": 0.82, "module": "video", "base": 8100},
-    {"name": "杭州", "x": 0.78, "y": 0.56, "module": "shop", "base": 6800},
-    {"name": "成都", "x": 0.42, "y": 0.58, "module": "live", "base": 6200},
-    {"name": "武汉", "x": 0.66, "y": 0.56, "module": "video", "base": 5400},
-    {"name": "西安", "x": 0.52, "y": 0.46, "module": "shop", "base": 4800},
-    {"name": "重庆", "x": 0.48, "y": 0.62, "module": "live", "base": 5100},
-    {"name": "南京", "x": 0.76, "y": 0.50, "module": "video", "base": 4600},
-    {"name": "郑州", "x": 0.64, "y": 0.44, "module": "shop", "base": 3900},
-    {"name": "长沙", "x": 0.62, "y": 0.64, "module": "live", "base": 4200},
+    {"name": "北京", "lng": 116.41, "lat": 39.90, "province": "北京", "module": "shop", "base": 8600},
+    {"name": "上海", "lng": 121.47, "lat": 31.23, "province": "上海", "module": "shop", "base": 9200},
+    {"name": "广州", "lng": 113.26, "lat": 23.13, "province": "广东", "module": "live", "base": 7400},
+    {"name": "深圳", "lng": 114.06, "lat": 22.55, "province": "广东", "module": "video", "base": 8100},
+    {"name": "杭州", "lng": 120.15, "lat": 30.28, "province": "浙江", "module": "shop", "base": 6800},
+    {"name": "成都", "lng": 104.07, "lat": 30.67, "province": "四川", "module": "live", "base": 6200},
+    {"name": "武汉", "lng": 114.31, "lat": 30.59, "province": "湖北", "module": "video", "base": 5400},
+    {"name": "西安", "lng": 108.94, "lat": 34.34, "province": "陕西", "module": "shop", "base": 4800},
+    {"name": "重庆", "lng": 106.55, "lat": 29.56, "province": "重庆", "module": "live", "base": 5100},
+    {"name": "南京", "lng": 118.80, "lat": 32.06, "province": "江苏", "module": "video", "base": 4600},
+    {"name": "郑州", "lng": 113.65, "lat": 34.76, "province": "河南", "module": "shop", "base": 3900},
+    {"name": "长沙", "lng": 112.98, "lat": 28.21, "province": "湖南", "module": "live", "base": 4200},
 ]
 
 
@@ -423,20 +423,22 @@ class DashboardPredictor:
         live_drift: float = 0.0,
     ) -> list[dict[str, Any]]:
         drift_by_module = {"shop": shop_drift, "video": video_drift, "live": live_drift}
+        seed_map = {item["name"]: item for item in REGION_SEED}
 
-        if not prev_regions:
+        # 旧内存态只有 x/y 时，直接按新种子重建
+        if not prev_regions or any("lng" not in item for item in prev_regions):
             return [
                 {
                     "name": item["name"],
-                    "x": item["x"],
-                    "y": item["y"],
+                    "lng": item["lng"],
+                    "lat": item["lat"],
+                    "province": item["province"],
                     "module": item["module"],
                     "value": int(item["base"] * random.uniform(0.85, 1.15)),
                 }
                 for item in REGION_SEED
             ]
 
-        seed_map = {item["name"]: item for item in REGION_SEED}
         regions: list[dict[str, Any]] = []
         for item in prev_regions:
             module = item.get("module", "shop")
@@ -444,8 +446,9 @@ class DashboardPredictor:
             regions.append(
                 {
                     "name": item["name"],
-                    "x": seed["x"] if seed else item["x"],
-                    "y": seed["y"] if seed else item["y"],
+                    "lng": seed["lng"] if seed else item["lng"],
+                    "lat": seed["lat"] if seed else item["lat"],
+                    "province": seed["province"] if seed else item.get("province", ""),
                     "module": module,
                     "value": _next_int(
                         int(item["value"]),
