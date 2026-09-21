@@ -4,4 +4,4 @@ sqlalchemy==2.0.36
 bcrypt==4.2.1
 python-jose[cryptography]==3.3.0
 pydantic-settings==2.7.0
-httpx==0.28.1
+python-multipart==0.0.20

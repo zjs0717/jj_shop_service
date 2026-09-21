@@ -31,34 +31,60 @@ def create_access_token(subject: str) -> str:
     return jwt.encode(payload, settings.secret_key, algorithm="HS256")
 
 
-def get_current_user(
-    credentials: HTTPAuthorizationCredentials | None = Depends(security),
-    db: Session = Depends(get_db),
-) -> User:
+def _user_from_credentials(
+    credentials: HTTPAuthorizationCredentials | None,
+    db: Session,
+    *,
+    required: bool,
+) -> User | None:
     if credentials is None or credentials.scheme.lower() != "bearer":
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="未登录或 token 无效",
-        )
+        if required:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="未登录或 token 无效",
+            )
+        return None
 
     try:
         payload = jwt.decode(credentials.credentials, settings.secret_key, algorithms=["HS256"])
         username = payload.get("sub")
         if not username:
+            if required:
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="未登录或 token 无效",
+                )
+            return None
+    except JWTError as exc:
+        if required:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="未登录或 token 无效",
-            )
-    except JWTError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="未登录或 token 无效",
-        ) from exc
+            ) from exc
+        return None
 
     user = db.query(User).filter(User.username == username).first()
     if user is None:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="用户不存在",
-        )
+        if required:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="用户不存在",
+            )
+        return None
     return user
+
+
+def get_current_user(
+    credentials: HTTPAuthorizationCredentials | None = Depends(security),
+    db: Session = Depends(get_db),
+) -> User:
+    user = _user_from_credentials(credentials, db, required=True)
+    assert user is not None
+    return user
+
+
+def get_optional_user(
+    credentials: HTTPAuthorizationCredentials | None = Depends(security),
+    db: Session = Depends(get_db),
+) -> User | None:
+    return _user_from_credentials(credentials, db, required=False)

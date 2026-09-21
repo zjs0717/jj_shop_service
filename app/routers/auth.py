@@ -21,7 +21,11 @@ def register(payload: AuthRequest, db: Session = Depends(get_db)) -> dict:
             detail="用户名已存在",
         )
 
-    user = User(username=username, password_hash=hash_password(payload.password))
+    user = User(
+        username=username,
+        password_hash=hash_password(payload.password),
+        nickname=username,
+    )
     db.add(user)
     db.commit()
     db.refresh(user)
@@ -47,4 +51,4 @@ def login(payload: AuthRequest, db: Session = Depends(get_db)) -> dict:
 
 @router.get("/me")
 def me(current_user: User = Depends(get_current_user)) -> dict:
-    return success(UserResponse.model_validate(current_user).model_dump())
+    return success(UserResponse.from_user(current_user).model_dump(mode="json"))
